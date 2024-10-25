@@ -10,10 +10,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mcarabajal.ejemplos.exceptions.DineroInsuficienteException;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.*;
@@ -22,10 +24,18 @@ import static org.junit.jupiter.api.Assumptions.*;
 class CuentaTest {
     Cuenta cuenta;
 
+    private TestInfo testInfo;
+    private TestReporter testReporter;
+
     @BeforeEach
-    void initMetodoTest() {
+    void initMetodoTest(TestInfo testInfo, TestReporter testReporter) {
         this.cuenta = new Cuenta("Marcelo", new BigDecimal("1000.12345"));
+        this.testInfo = testInfo;
+        this.testReporter = testReporter;
         System.out.println("Iniciando el metodo");
+
+        testReporter.publishEntry("ejecutando: " + testInfo.getDisplayName() + " " + testInfo.getTestMethod().orElse(null).getName()
+                + " con las etiquetes " + testInfo.getTags());
     }
 
     @AfterEach
@@ -43,12 +53,17 @@ class CuentaTest {
         System.out.println("finalizando el test");
     }
 
+    @Tag("cuenta")
     @Nested
     @DisplayName("probando atributos de la cuenta corriente")
-    class CuentaTestNombreSaldo{
+    class CuentaTestNombreSaldo {
         @Test
         @DisplayName("probando el nombre")
         void testNombreCuenta() {
+            testReporter.publishEntry(testInfo.getTags().toString());
+            if (testInfo.getTags().contains("cuenta")) {
+                testReporter.publishEntry("hacer algo con la etiqueta cuenta");
+            }
             //cuenta.setPersona("Marcelo");
             String esperado = "Marcelo";
             String real = cuenta.getPersona();
@@ -72,14 +87,14 @@ class CuentaTest {
         void testReferenciaCuenta() {
             cuenta = new Cuenta("Jorge", new BigDecimal("9999.9999"));
             Cuenta cuenta2 = new Cuenta("Jorge", new BigDecimal("9999.9999"));
-
             assertEquals(cuenta2, cuenta);
         }
 
     }
 
     @Nested
-    class CuentaOperacionesTest{
+    class CuentaOperacionesTest {
+        @Tag("cuenta")
         @Test
         void testDebitoCuenta() {
             cuenta.debito(new BigDecimal(100));
@@ -88,6 +103,7 @@ class CuentaTest {
             assertEquals("900.12345", cuenta.getSaldo().toPlainString());
         }
 
+        @Tag("cuenta")
         @Test
         void testCreditoCuenta() {
             cuenta.credito(new BigDecimal(100));
@@ -97,6 +113,8 @@ class CuentaTest {
 
         }
 
+        @Tag("cuenta")
+        @Tag("banco")
         @Test
         void testTransferirDineroCuentas() {
             Cuenta cuenta1 = new Cuenta("Jhon Doe", new BigDecimal("2500"));
@@ -110,6 +128,8 @@ class CuentaTest {
         }
     }
 
+    @Tag("cuenta")
+    @Tag("error")
     @Test
     void testDineroInsuficienteExceptionCuenta() {
         Exception exception = assertThrows(DineroInsuficienteException.class, () -> {
@@ -120,10 +140,9 @@ class CuentaTest {
         assertEquals(esperado, actual);
     }
 
-
-
     @Test
-    //@Disabled
+    @Tag("cuenta")
+    @Tag("banco")
     @DisplayName("probando relaciones entre las cuentas y el banco con assertAll")
     void testRelacionBancoCuentas() {
         //fail();
@@ -138,9 +157,9 @@ class CuentaTest {
         banco.transferir(cuenta2, cuenta1, new BigDecimal(500));
 
         assertAll(() -> assertEquals("1000.8989", cuenta2.getSaldo().toPlainString(),
-                            () -> "el valor del saldo de la cuenta 2 no es el esperado"),
+                        () -> "el valor del saldo de la cuenta 2 no es el esperado"),
                 () -> assertEquals("3000", cuenta1.getSaldo().toPlainString(),
-                            () -> "el valor del saldo de la cuenta 1 no es el esperado"),
+                        () -> "el valor del saldo de la cuenta 1 no es el esperado"),
                 () -> assertEquals(2, banco.getCuentas().size()),
                 () -> assertEquals("Banco ICBC", cuenta1.getBanco().getNombre()),
                 () -> assertEquals("Marcelo", banco.getCuentas().stream()
@@ -173,7 +192,7 @@ class CuentaTest {
     }
 
     @Nested
-    class JavaVersionTest{
+    class JavaVersionTest {
         @Test
         @EnabledOnJre(JRE.JAVA_8)
         void soloJdk8() {
@@ -189,7 +208,7 @@ class CuentaTest {
         @Test
         void imprimirSystemProperties() {
             Properties properties = System.getProperties();
-            properties.forEach((k, v)-> System.out.println(k + ":" + v));
+            properties.forEach((k, v) -> System.out.println(k + ":" + v));
 
         }
 
@@ -220,7 +239,7 @@ class CuentaTest {
     }
 
     @Nested
-    class variableAmbienteTest{
+    class variableAmbienteTest {
         @Test
         void imprimirVariablesAmbiente() {
             Map<String, String> getenv = System.getenv();
@@ -233,7 +252,7 @@ class CuentaTest {
         }
 
         @Test
-        @EnabledIfEnvironmentVariable(named= "NUMBER_OF_PROCESSORS", matches = "4")
+        @EnabledIfEnvironmentVariable(named = "NUMBER_OF_PROCESSORS", matches = "4")
         void testProcesadores() {
         }
 
@@ -261,7 +280,7 @@ class CuentaTest {
     }
 
     @Test
-        @DisplayName("test Saldo Cuenta Dev 2")
+    @DisplayName("test Saldo Cuenta Dev 2")
     void testSaldoCuentaDev2() {
         boolean esDev = "dev".equals(System.getProperty("ENV"));
         assumingThat(esDev, () -> {
@@ -273,9 +292,9 @@ class CuentaTest {
     }
 
     @DisplayName("Probando Debito Cuenta Repetir")
-    @RepeatedTest(value=5, name="{displayName} - Repeticion numero {currentRepetition} de {totalRepetitions}")
+    @RepeatedTest(value = 5, name = "{displayName} - Repeticion numero {currentRepetition} de {totalRepetitions}")
     void testDebitoCuentaRepetir(RepetitionInfo info) {
-        if(info.getCurrentRepetition() == 3){
+        if (info.getCurrentRepetition() == 3) {
             System.out.println("estamos en la repeticion " + info.getCurrentRepetition());
         }
         cuenta.debito(new BigDecimal(100));
@@ -284,8 +303,9 @@ class CuentaTest {
         assertEquals("900.12345", cuenta.getSaldo().toPlainString());
     }
 
+    @Tag("param")
     @Nested
-    class PruebasParametrizadasTest{
+    class PruebasParametrizadasTest {
         @ParameterizedTest(name = "numero {index} ejecutando con valor {0} {argumentsWithNames}")
         @ValueSource(strings = {"100", "200", "300", "400", "500", "700", "1000.12345"})
         void testDebitoCuentaValueSource(String monto) {
@@ -340,7 +360,7 @@ class CuentaTest {
         }
     }
 
-
+    @Tag("param")
     @ParameterizedTest(name = "numero {index} ejecutando con valor {0} {argumentsWithNames}")
     @MethodSource("montoList")
     void testDebitoCuentaMethodSource(String monto) {
@@ -353,5 +373,28 @@ class CuentaTest {
         return Arrays.asList("100", "200", "300", "400", "500", "700", "1000.12345");
     }
 
+    @Nested
+    @Tag("timeout")
+    class EjemploTimeoutTest{
+        @Test
+        @Timeout(1)
+        void pruebaTimeout() throws InterruptedException {
+            TimeUnit.MILLISECONDS.sleep(100);
+        }
+
+        @Test
+        @Timeout(value = 1000, unit = TimeUnit.MILLISECONDS)
+        void pruebaTimeout2() throws InterruptedException {
+            TimeUnit.MILLISECONDS.sleep(900);
+        }
+
+        @Test
+        void testTimeoutAssertions() {
+            assertTimeout(Duration.ofSeconds(5), () -> {
+                TimeUnit.MILLISECONDS.sleep(4000);
+            });
+        }
+
+    }
 
 }
